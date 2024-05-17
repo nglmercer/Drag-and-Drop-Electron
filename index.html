@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8">
+    <!-- https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP -->
+    <!-- <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'"> -->
+    <title>Drag and drop electron ipc!</title>
+    <link rel="stylesheet" type="text/css" href="style.css" />
+  </head>
+  <body>
+    <!-- <h2>Drag and drop electron-version ipcs!</h2>
+    We are using Node.js <span id="node-version"></span>,
+    Chromium <span id="chrome-version"></span>,
+    and Electron <span id="electron-version"></span>. -->
+
+    <h1>Drag files</h1>
+    <div class="file-container" id="file-container">
+          <ul id="files-list"> </ul>        
+    </div>
+    <script src="./renderer.js"></script>
+  </body>
+  <style>
+    body {
+      background-color: rgb(223, 223, 223);
+      overflow: auto;
+      scrollbar-color: transparent;
+      scrollbar-width: none; /* Firefox */
+      -ms-overflow-style: none;  /* IE and Edge */
+    }
+    h1 {
+      position: fixed;
+      top: 10px;
+      left: 45%;
+      background-color: rgba(0, 0, 0, 0.5);
+      border-radius: 5px;
+    }
+  </style>
+</html>

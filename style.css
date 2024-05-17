@@ -1,0 +1,15 @@
+.file-container
+{
+    /* width: 300px; */
+    height: 300px;
+    border-radius: 5px;
+    text-align: center;    
+    border-color: brown;
+    background-color: rgba(127, 255, 212, 0.11);
+    margin: auto;
+}
+
+.unselectable{
+    user-select: none;
+    border-radius: 10px;
+}

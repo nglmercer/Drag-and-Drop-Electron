@@ -1,0 +1,14 @@
+{
+  "name": "electron-drag-files",
+  "version": "1.0.0",
+  "description": "Drag and Drop files to and from Electron app",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "author": "Hadi Danial",
+  "license": "ISC",
+  "devDependencies": {
+    "electron": "^28.2.3"
+  }
+}
