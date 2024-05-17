@@ -1,14 +1,28 @@
 .file-container
 {
     /* width: 300px; */
-    height: 300px;
     border-radius: 5px;
     text-align: center;    
     border-color: brown;
     background-color: rgba(127, 255, 212, 0.11);
     margin: auto;
 }
-
+.file-item {
+    width: 300px;
+    list-style-type: none;
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    margin-bottom: 10px;
+}
+img {
+    width: 300px;
+    object-fit: cover;
+}
+video {
+    width: 300px;
+    object-fit: cover;
+}
 .unselectable{
     user-select: none;
     border-radius: 10px;
