@@ -61,26 +61,34 @@ function isSupportedMedia(filePath) {
     return supportedExtensions.some(ext => filePath.endsWith(ext));
 }
 ipcMain.handle("add-file-path", async (_, fileParams) => {
-    const { fileToAdd, fileName } = fileParams;
+    const { fileToAdd, fileName, draggedFromThisWindow } = fileParams; // Nuevo parámetro
 
     try {
         const filePath = path.join(fileCopyDestination, fileName);
         const fileData = JSON.parse(fs.readFileSync(filePathsStorage));
-        const fileExists = fileData.some(file => file.name === fileName);
 
-        if (!fileExists) {
-            // Decodificar el contenido base64 a datos binarios
-            const fileBinary = Buffer.from(fileToAdd.split(',')[1], 'base64');
-            fs.writeFileSync(filePath, fileBinary); // Guardar el archivo en el sistema de archivos
-            fileData.push({ name: fileName, path: filePath });
-            fs.writeFileSync(filePathsStorage, JSON.stringify(fileData));
-        } else {
-            console.log(`El archivo "${fileName}" ya existe en la lista.`);
+        // Verificar si existe un archivo con el mismo nombre y tipo
+        const existingFileIndex = fileData.findIndex(file => file.name === fileName && path.extname(file.name) === path.extname(fileName));
+
+        if (existingFileIndex !== -1) {
+            // Si se encuentra un archivo con el mismo nombre y tipo, reemplazarlo
+            const existingFilePath = fileData[existingFileIndex].path;
+            fs.unlinkSync(existingFilePath); // Eliminar el archivo existente
+            fileData.splice(existingFileIndex, 1); // Eliminar la entrada del archivo existente de la lista
         }
+
+        // Decodificar el contenido base64 a datos binarios
+        const fileBinary = Buffer.from(fileToAdd.split(',')[1], 'base64');
+        fs.writeFileSync(filePath, fileBinary); // Guardar el archivo en el sistema de archivos
+        fileData.push({ name: fileName, path: filePath });
+        fs.writeFileSync(filePathsStorage, JSON.stringify(fileData));
+        
+        console.log(`El archivo "${fileName}" se ha agregado o reemplazado correctamente.`);
     } catch (err) {
         console.error('Error adding file path:', err);
     }
 });
+
 
 // Maneja la solicitud para copiar un archivo
 ipcMain.handle("copy-file", async (_, fileParams) => {
@@ -162,10 +170,10 @@ ipcMain.handle("on-drag-start", async (event, fileName) => {
                     icon: iconPath
                 });
 
-                console.log("on-drag-start: ", fileName);
-                console.log("on-drag-start filePath: ", filePath);
-                console.log("on-drag-start fileInfo: ", fileInfo);
-                console.log("on-drag-start iconPath: ", iconPath);
+                // console.log("on-drag-start: ", fileName);
+                // console.log("on-drag-start filePath: ", filePath);
+                // console.log("on-drag-start fileInfo: ", fileInfo);
+                // console.log("on-drag-start iconPath: ", iconPath);
             } else {
                 console.log(`File "${filePath}" does not exist.`);
                 throw new Error(`File "${filePath}" does not exist.`);
