@@ -20,10 +20,17 @@ async function handleFileDrop(event) {
     console.log("drop Event", event.dataTransfer.files);
     const files = event.dataTransfer.files;
     for (const file of files) {
-        await window.api.addFilePath({ fileToAdd: file.path, fileName: file.name });
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+            const fileContent = event.target.result;
+            await window.api.addFilePath({ fileToAdd: fileContent, fileName: file.name });
+            console.log("handleFileDrop fileToAdd: ", file);
+        };
+        reader.readAsDataURL(file); // Leer el contenido del archivo como una URL de datos
     }
     await updateFilesList();
 }
+
 
 async function updateFilesList() {
     try {
@@ -83,7 +90,7 @@ function createFileListItem(fileInfo) {
 
 // Función para detectar si el archivo es una imagen
 function isImage(filePath) {
-    const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.svg'];
+    const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.svg', '.avif'];
     return imageExtensions.some(ext => filePath.toLowerCase().endsWith(ext));
 }
 

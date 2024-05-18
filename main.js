@@ -2,6 +2,7 @@ const { app, BrowserWindow, ipcMain } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const https = require('https');
+const sharp = require('sharp');
 
 // Ruta de destino para los archivos copiados
 const fileCopyDestination = path.join(__dirname, 'copied-files');
@@ -55,22 +56,39 @@ app.on('window-all-closed', () => {
         app.quit();
     }
 });
+function isSupportedMedia(filePath) {
+    const supportedExtensions = ['.png', '.jpg', '.jpeg', '.ico', '.mp4', '.mp3'];
+    return supportedExtensions.some(ext => filePath.endsWith(ext));
+}
 ipcMain.handle("add-file-path", async (_, fileParams) => {
     const { fileToAdd, fileName } = fileParams;
 
     try {
+        const filePath = path.join(fileCopyDestination, fileName);
         const fileData = JSON.parse(fs.readFileSync(filePathsStorage));
-        fileData.push({ name: fileName, path: fileToAdd });
-        fs.writeFileSync(filePathsStorage, JSON.stringify(fileData));
+        const fileExists = fileData.some(file => file.name === fileName);
+
+        if (!fileExists) {
+            // Decodificar el contenido base64 a datos binarios
+            const fileBinary = Buffer.from(fileToAdd.split(',')[1], 'base64');
+            fs.writeFileSync(filePath, fileBinary); // Guardar el archivo en el sistema de archivos
+            fileData.push({ name: fileName, path: filePath });
+            fs.writeFileSync(filePathsStorage, JSON.stringify(fileData));
+        } else {
+            console.log(`El archivo "${fileName}" ya existe en la lista.`);
+        }
     } catch (err) {
         console.error('Error adding file path:', err);
     }
 });
+
 // Maneja la solicitud para copiar un archivo
 ipcMain.handle("copy-file", async (_, fileParams) => {
     const fileToCopy = fileParams.fileToCopy;
     const fileName = fileParams.fileName;
-
+    console.log("copy-file fileToCopy: ", fileToCopy);
+    console.log("copy-file fileName: ", fileName);
+    console.log("copy-file fileParams: ", fileParams);
     try {
         fs.copyFileSync(fileToCopy, path.join(fileCopyDestination, fileName));
     } catch (err) {
@@ -81,23 +99,6 @@ let filesInfo = [];
 
 // Maneja la solicitud para obtener la lista de archivos en la carpeta
 ipcMain.handle("get-files-in-folder", async () => {
-    // try {
-    //     const files = await fs.promises.readdir(fileCopyDestination);
-    //     filesInfo = await Promise.all(files.map(async (file) => {
-    //         const filePath = path.join(fileCopyDestination, file);
-    //         const fileStat = await fs.promises.stat(filePath);
-    //         return {
-    //             name: file,
-    //             path: filePath,
-    //             size: fileStat.size,
-    //             isDirectory: fileStat.isDirectory()
-    //         };
-    //     }));
-    //     return filesInfo;
-    // } catch (err) {
-    //     console.error('Error getting files in folder:', err);
-    //     return [];
-    // }
     try {
         const fileData = JSON.parse(fs.readFileSync(filePathsStorage));
         filesInfo = fileData.map(file => ({
@@ -115,55 +116,59 @@ ipcMain.handle("get-files-in-folder", async () => {
 
 // Función para verificar si el archivo es una imagen soportada
 function isSupportedImage(filePath) {
-    const supportedExtensions = ['.png', '.jpg', '.jpeg', '.ico'];
+    const supportedExtensions = ['.png', '.jpg', '.jpeg', '.ico', '.avif'];
     return supportedExtensions.some(ext => filePath.endsWith(ext));
 }
 
-// Maneja el inicio del evento de arrastre
-// ipcMain.handle("on-drag-start", async (event, fileName) => {
-//     try {
-//         const fileInfo = filesInfo.find(file => file.name === fileName);
-//         if (fileInfo) {
-//             // Verificar que el archivo existe y se puede acceder a él
-//             if (fs.existsSync(fileInfo.path)) {
-//                 // Usar ícono por defecto si el archivo no es una imagen soportada
-//                 const iconPath = isSupportedImage(fileInfo.path) ? fileInfo.path : defaultIconPath;
+async function convertAvifToPng(avifPath, outputPath) {
+    try {
+        await sharp(avifPath)
+            .png()
+            .toFile(outputPath);
+        return outputPath;
+    } catch (error) {
+        console.error("Error converting AVIF to PNG:", error);
+        throw error;
+    }
+}
 
-//                 event.sender.startDrag({
-//                     file: fileInfo.path,
-//                     icon: iconPath
-//                 });
-
-//                 console.log("on-drag-start: ", fileName);
-//                 console.log("on-drag-start: ", fileInfo.path);
-//             } else {
-//                 console.log(`File "${fileInfo.path}" does not exist.`);
-//                 throw new Error(`File "${fileInfo.path}" does not exist.`);
-//             }
-//         } else {
-//             console.log(`File "${fileName}" not found in filesInfo.`);
-//         }
-//     } catch (err) {
-//         console.error('Error starting drag:', err);
-//     }
-// });
+// Uso en la función de arrastre
 ipcMain.handle("on-drag-start", async (event, fileName) => {
     try {
         const fileInfo = filesInfo.find(file => file.name === fileName);
         if (fileInfo) {
-            if (fs.existsSync(fileInfo.path)) {
-                const iconPath = isSupportedImage(fileInfo.path) ? fileInfo.path : defaultIconPath;
+            let filePath = fileInfo.path;
+            console.log(`Initial filePath: ${filePath}`);
+
+            if (!fs.existsSync(filePath) && filePath.startsWith("data:")) {
+                filePath = fileInfo.path;
+                console.log(`Updated filePath (base64): ${filePath}`);
+            }
+
+            if (fs.existsSync(filePath)) {
+                let iconPath = isSupportedImage(filePath) ? filePath : defaultIconPath;
+
+                if (filePath.endsWith('.avif')) {
+                    const convertedPath = path.join(path.dirname(filePath), `${path.basename(filePath, '.avif')}.png`);
+                    await convertAvifToPng(filePath, convertedPath);
+                    iconPath = convertedPath;
+                }
+
+                console.log(`Drag filePath exists: ${filePath}`);
+                console.log(`iconPath set to: ${iconPath}`);
 
                 event.sender.startDrag({
-                    file: fileInfo.path,
+                    file: filePath,
                     icon: iconPath
                 });
 
                 console.log("on-drag-start: ", fileName);
-                console.log("on-drag-start: ", fileInfo.path);
+                console.log("on-drag-start filePath: ", filePath);
+                console.log("on-drag-start fileInfo: ", fileInfo);
+                console.log("on-drag-start iconPath: ", iconPath);
             } else {
-                console.log(`File "${fileInfo.path}" does not exist.`);
-                throw new Error(`File "${fileInfo.path}" does not exist.`);
+                console.log(`File "${filePath}" does not exist.`);
+                throw new Error(`File "${filePath}" does not exist.`);
             }
         } else {
             console.log(`File "${fileName}" not found in filesInfo.`);
@@ -172,26 +177,7 @@ ipcMain.handle("on-drag-start", async (event, fileName) => {
         console.error('Error starting drag:', err);
     }
 });
-// Maneja la solicitud para eliminar un archivo
-// ipcMain.handle("delete-file", async (_, fileName) => {
-//     try {
-//         const filePath = path.join(fileCopyDestination, fileName);
-//         if (fs.existsSync(filePath)) {
-//             await fs.promises.unlink(filePath);
-//             console.log(`delete-file: ${fileName} deleted successfully.`);
-            
-//             // Actualiza filesInfo después de eliminar el archivo
-//             filesInfo = filesInfo.filter(file => file.name !== fileName);
-//             return { success: true, message: `File "${fileName}" deleted successfully.` };
-//         } else {
-//             console.log(`delete-file: ${fileName} does not exist.`);
-//             return { success: false, message: `File "${fileName}" does not exist.` };
-//         }
-//     } catch (err) {
-//         console.error('Error deleting file:', err);
-//         return { success: false, message: `Error deleting file: ${err.message}` };
-//     }
-// });
+
 ipcMain.handle("delete-file", async (_, fileName) => {
     try {
         const fileData = JSON.parse(fs.readFileSync(filePathsStorage));
