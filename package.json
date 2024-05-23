@@ -4,14 +4,26 @@
   "description": "Drag and Drop files to and from Electron app",
   "main": "main.js",
   "scripts": {
-    "start": "electron ."
+    "start": "electron .",
+    "package": "electron-forge package",
+    "make": "electron-forge make",
+    "build": "electron-forge make",
+    "publish": "electron-forge publish --release",
+    "lint": "echo \"No linting configured\""
   },
   "author": "Hadi Danial",
   "license": "ISC",
   "devDependencies": {
-    "electron": "^30.0.6"
+    "@electron-forge/cli": "^7.4.0",
+    "@electron-forge/maker-deb": "^7.2.0",
+    "@electron-forge/maker-rpm": "^7.2.0",
+    "@electron-forge/maker-squirrel": "^7.2.0",
+    "@electron-forge/maker-zip": "^7.2.0",
+    "@electron-forge/plugin-auto-unpack-natives": "^7.2.0",
+    "@electron-forge/publisher-github": "^7.3.1",
+    "electron": "28.2.3"
   },
   "dependencies": {
-    "sharp": "^0.33.4"
+    "electron-store": "^8.2.0"
   }
 }

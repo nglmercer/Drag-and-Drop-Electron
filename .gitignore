@@ -4,3 +4,4 @@
 file-paths.json
 package-lock.json
 bun.lockb
+/out

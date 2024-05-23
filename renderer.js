@@ -1,110 +1,52 @@
 document.addEventListener('DOMContentLoaded', () => {
-    const fileContainer = document.getElementById("file-container");
-    const filesList = document.getElementById("files-list");
-
-    fileContainer.addEventListener("dragover", handleDragOver);
-    fileContainer.addEventListener("drop", handleFileDrop);
-
-    updateFilesList();
-});
-
-async function handleDragOver(event) {
-    event.stopPropagation();
-    event.preventDefault();
-    console.log("dragover Event", event.dataTransfer.files);
-}
-
-async function handleFileDrop(event) {
-    event.stopPropagation();
-    event.preventDefault();
-    console.log("drop Event", event.dataTransfer.files);
-    const files = event.dataTransfer.files;
-    for (const file of files) {
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-            const fileContent = event.target.result;
-            await window.api.addFilePath({ fileToAdd: fileContent, fileName: file.name });
-            console.log("handleFileDrop fileToAdd: ", file);
-        };
-        reader.readAsDataURL(file); // Leer el contenido del archivo como una URL de datos
-    }
-    await updateFilesList();
-}
-
-
-async function updateFilesList() {
-    try {
-        const filesInfo = await window.api.getFilesInFolder();
-        const filesList = document.getElementById("files-list");
-        filesList.innerHTML = ""; // Limpiar la lista antes de actualizarla
-
-        filesInfo.forEach(fileInfo => {
-            const listItem = createFileListItem(fileInfo);
-            filesList.appendChild(listItem);
-        });
-    } catch (error) {
-        console.error('Error getting files in folder:', error);
-    }
-}
-
-function createFileListItem(fileInfo) {
-    const item = document.createElement("li");
-    item.className = "file-item unselectable";
-    item.draggable = true;
-
-    let thumbnail;
-    if (isImage(fileInfo.path)) {
-        thumbnail = document.createElement("img");
-        thumbnail.src = `file://${fileInfo.path}`;
-        thumbnail.className = "file-thumbnail";
-    } else if (isVideo(fileInfo.path)) {
-        thumbnail = document.createElement("video");
-        thumbnail.src = `file://${fileInfo.path}`;
-        thumbnail.className = "file-thumbnail";
-        thumbnail.controls = true; // Agregar controles de video
-    } else {
-        thumbnail = document.createElement("img");
-        thumbnail.src = `default-icon.png`; // Usa una miniatura por defecto para otros archivos
-        thumbnail.className = "file-thumbnail";
-    }
-
-    const fileNameText = document.createElement("span");
-    fileNameText.textContent = fileInfo.name;
-    fileNameText.className = "file-name";
-
-    const deleteButton = document.createElement("button");
-    deleteButton.textContent = "Eliminar";
-    deleteButton.className = "delete-button";
-    deleteButton.addEventListener("click", () => handleDeleteFile(fileInfo.name));
-
-    item.appendChild(thumbnail);
-    item.appendChild(fileNameText);
-    item.appendChild(deleteButton);
-    item.addEventListener('dragstart', (event) => {
+    const dropArea = document.getElementById('drop-area');
+    const fileList = document.getElementById('file-list');
+    // console.log('cargando datos');
+    dropArea.addEventListener('dragover', (event) => {
         event.preventDefault();
-        window.api.startDrag(fileInfo.name);
+        dropArea.classList.add('highlight');
     });
 
-    return item;
-}
+    dropArea.addEventListener('dragleave', () => {
+        dropArea.classList.remove('highlight');
+    });
 
-// Función para detectar si el archivo es una imagen
-function isImage(filePath) {
-    const imageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp', '.ico', '.svg', '.avif'];
-    return imageExtensions.some(ext => filePath.toLowerCase().endsWith(ext));
-}
+    dropArea.addEventListener('drop', async (event) => {
+        event.preventDefault();
+        dropArea.classList.remove('highlight');
+        
+        const files = event.dataTransfer.files;
+        for (const file of files) {
+            console.log('info:', file); // Aquí se imprime el path o la URL del archivo
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                const fileParams = { fileToAdd: e.target.result, fileName: file.name };
+                const confirmation = confirm(`¿Desea agregar el archivo "${file.name}"?`);
+                if (confirmation) {
+                    await window.api.addFilePath(fileParams);
+                    loadFileList();
+                }
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+    
+    const loadFileList = async () => {
+        const files = await window.api.getFilesInFolder();
+        console.log('loadFileList', files);
+        fileList.innerHTML = files.map(file => `
+            <div class="file-item">
+                <span>${file.name}</span>
+                <button onclick="deleteFile('${file.name}')">Delete</button>
+                <img src="${file.path}" class="file-thumbnail" />
+            </div>
+        `).join('');
+    };
 
-// Función para detectar si el archivo es un video
-function isVideo(filePath) {
-    const videoExtensions = ['.mp4', '.avi', '.mov', '.wmv', '.flv', '.mkv'];
-    return videoExtensions.some(ext => filePath.toLowerCase().endsWith(ext));
-}
-
-async function handleDeleteFile(fileName) {
-    try {
+    window.deleteFile = async (fileName) => {
         await window.api.deleteFile(fileName);
-        await updateFilesList();
-    } catch (error) {
-        console.error(`Error deleting file "${fileName}":`, error);
-    }
-}
+        loadFileList();
+    };
+
+    loadFileList();
+});
