@@ -31,19 +31,28 @@ app.on('window-all-closed', () => {
     if (process.platform !== 'darwin') app.quit();
 });
 
+
 ipcMain.handle("add-file-path", async (_, fileParams) => {
-    const { fileToAdd, fileName } = fileParams;
+    const { fileToAdd, fileName, filePath } = fileParams;
 
     try {
-        const { canceled, filePath } = await dialog.showSaveDialog({
-            title: 'Guardar archivo',
-            defaultPath: fileName
-        });
-
-        if (!canceled) {
-            const savedFilePath = fileHandler.addOrReplaceFile(fileToAdd, fileName, path.dirname(filePath));
-            console.log(`El archivo "${fileName}" se ha agregado o reemplazado correctamente.`);
+        if (filePath) {
+            // Si se proporciona un filePath, simplemente registre su información
+            const savedFilePath = fileHandler.registerFile(filePath, fileName);
+            console.log(`El archivo "${fileName}" se ha registrado correctamente.`);
             return { success: true, filePath: savedFilePath };
+        } else {
+            // Si no se proporciona un filePath, se muestra el diálogo para guardar el archivo
+            const { canceled, filePath: dialogFilePath } = await dialog.showSaveDialog({
+                title: 'Guardar archivo',
+                defaultPath: fileName
+            });
+
+            if (!canceled) {
+                const savedFilePath = fileHandler.addOrReplaceFile(fileToAdd, fileName, path.dirname(dialogFilePath));
+                console.log(`El archivo "${fileName}" se ha agregado o reemplazado correctamente.`);
+                return { success: true, filePath: savedFilePath };
+            }
         }
     } catch (err) {
         console.error('Error adding file path:', err);
@@ -75,15 +84,10 @@ ipcMain.handle("on-drag-start", async (event, fileName) => {
     try {
         const filesInfo = fileHandler.getFilesInfo();
         const fileInfo = filesInfo.find(file => file.name === fileName);
+        console.log('on-drag-start', fileInfo);
         if (fileInfo) {
             const filePath = fileInfo.path;
-            if (fs.existsSync(filePath)) {
-                const iconPath = isSupportedImage(filePath) ? filePath : defaultIconPath;
-                event.sender.startDrag({
-                    file: filePath,
-                    icon: iconPath
-                });
-            } else {
+            if (!fs.existsSync(filePath)) {
                 throw new Error(`File "${filePath}" does not exist.`);
             }
         } else {
@@ -93,8 +97,3 @@ ipcMain.handle("on-drag-start", async (event, fileName) => {
         console.error('Error starting drag:', err);
     }
 });
-
-function isSupportedImage(filePath) {
-    const supportedExtensions = ['.png', '.jpg', '.jpeg', '.ico', '.avif', '.webp'];
-    return supportedExtensions.some(ext => filePath.endsWith(ext));
-}
